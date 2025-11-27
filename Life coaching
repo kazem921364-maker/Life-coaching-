@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>سنجش نیازهای رشد فردی</title>
+<style>
+body { font-family: Tahoma, sans-serif; padding: 20px; direction: rtl; }
+h2 { color: #2c3e50; }
+h3 { color: #34495e; margin-top: 5px; }
+.area { margin-bottom: 15px; }
+label { margin-left: 10px; }
+button { margin-top: 20px; padding: 10px 20px; font-size: 16px; margin-right: 10px; }
+.result { margin-top: 20px; padding: 15px; border: 1px solid #ccc; background: #f9f9f9; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<h2>فرم سنجش نیازهای رشد فردی</h2>
+<h3>مدرس دوره: مربی خانم فهیمه حیاتی</h3>
+<hr>
+<form id="growthForm">
+  <div>
+    <label>نام و نام خانوادگی:</label>
+    <input type="text" id="name" required>
+  </div>
+  <div>
+    <label>سن:</label>
+    <input type="number" id="age" required>
+  </div>
+  <div>
+    <label>شغل / وضعیت اشتغال:</label>
+    <input type="text" id="job" required>
+  </div>
+  <div>
+    <label>هدف از شرکت در دوره:</label>
+    <input type="text" id="goal" required>
+  </div>
+  <hr>
+  <div id="questions" style="max-height:500px;overflow:auto;"></div>
+  <button type="button" onclick="calculateResults()">مشاهده نتایج</button>
+  <button type="button" onclick="downloadCSV()">دانلود نتایج CSV</button>
+</form>
+<div class="result" id="resultDiv" style="display:none"></div>
+
+<script>
+const areas = [
+  "مدیریت اراده", "مدیریت زمان", "مدیریت استرس", "بازمهندسی خود",
+  "مهارت نه گفتن", "تعادل کار و زندگی", "هنر متقاعدسازی", "غلبه بر اهمال‌کاری",
+  "کنترل خشم و عصبانیت", "ارتباط مؤثر", "تصمیم‌گیری درست", "حال خوب و مدیریت احساسات",
+  "هدف‌گذاری و برنامه‌ریزی", "اصول موفقیت", "مبارزه با افکار و افراد سمی",
+  "اعتمادبه‌نفس و عزت‌نفس", "تفکر خلاق و هوش هیجانی", "شکست و تبدیل آن به پیروزی",
+  "شخصیت کاریزماتیک", "برند شخصی"
+];
+const questionsPerArea = 5;
+const questionsDiv = document.getElementById('questions');
+
+areas.forEach(area => {
+  const div = document.createElement('div');
+  div.className = 'area';
+  div.innerHTML = `<strong>${area}</strong><br>`;
+  for (let i=1; i<=questionsPerArea; i++){
+    div.innerHTML += `
+      <label>سؤال ${i}:</label>
+      <select name='${area}_q${i}' required>
+        <option value=''>انتخاب کنید</option>
+        <option value='yes'>بله</option>
+        <option value='no'>خیر</option>
+      </select><br>`;
+  }
+  questionsDiv.appendChild(div);
+});
+
+function calculateResults(){
+  const resultsArray = [];
+  let totalYes = 0;
+  let resultText = "";
+
+  areas.forEach(area => {
+    let yesCount = 0;
+    for(let i=1;i<=questionsPerArea;i++){
+      const val = document.querySelector(`[name='${area}_q${i}']`).value;
+      if(val==='yes') yesCount++;
+    }
+    totalYes += yesCount;
+    const urgent = yesCount>=3 ? "✅ نیاز فوری" : "❌ نیاز فوری ندارد";
+    resultText += `${area}: ${yesCount} بله - ${urgent}\n`;
+    resultsArray.push({area, yes: yesCount, urgent});
+  });
+
+  resultText += `\nمجموع کل بله‌ها: ${totalYes}\n`;
+  resultText += totalYes>30 ? "📌 پیشنهاد: شرکت در کل دوره توصیه می‌شود" : "📌 پیشنهاد: نیاز به آموزش در حوزه‌های مشخص شده";
+  
+  document.getElementById('resultDiv').innerText = resultText;
+  document.getElementById('resultDiv').style.display = 'block';
+
+  window.latestResults = {resultsArray, totalYes};
+}
+
+function downloadCSV(){
+  if(!window.latestResults){
+    alert("لطفاً ابتدا نتایج را محاسبه کنید.");
+    return;
+  }
+  const name = document.getElementById('name').value.replace(/ /g,'_') || 'user';
+  let csvContent = 'data:text/csv;charset=utf-8,';
+  // اضافه کردن نام مدرس
+  csvContent += `مدرس,مربی خانم فهیمه حیاتی\r\n`;
+  csvContent += `نام,سن,شغل,هدف\r\n`;
+  csvContent += `${document.getElementById('name').value},${document.getElementById('age').value},${document.getElementById('job').value},${document.getElementById('goal').value}\r\n`;
+  csvContent += `\r\nحوزه,تعداد بله,نیاز فوری\r\n`;
+  window.latestResults.resultsArray.forEach(r=>{
+    csvContent += `${r.area},${r.yes},${r.urgent.replace('✅ ','').replace('❌ ','')}\r\n`;
+  });
+  csvContent += `\nمجموع کل بله‌ها,${window.latestResults.totalYes}\r\n`;
+  csvContent += `پیشنهاد,${window.latestResults.totalYes>30 ? 'شرکت در کل دوره' : 'نیاز به آموزش در حوزه‌های مشخص شده'}`;
+
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement('a');
+  link.setAttribute('href', encodedUri);
+  link.setAttribute('download', `نتایج_سنجش_${name}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+</script>
+</body>
+</html>
